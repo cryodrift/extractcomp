@@ -1290,23 +1290,26 @@ class Cli implements Handler
             $this->writeComposer($destRepoRoot, $composer, $write);
             // Commit all changes we made
             $this->gitCommitAll($destRepoRoot, $commitmsg, $write);
+
+            // Ensure the repository has an origin remote configured for the target branch
+            $this->gitEnsureOriginRemote($destRepoRoot, $package, $branch, $write);
+            // Tag the last commit (or current HEAD) with the computed version
+            $this->gitTagVersion($destRepoRoot, $versionToWrite, $write);
+
+            // Load versions registry to persist last known versions across exports
+            $versionsRegistry = $this->loadVersionsRegistry();
+            $versionsRegistry[$package] = $versionToWrite;
+            // Save versions registry so last versions persist even if destination repos are removed
+            if ($write) {
+                $this->saveVersionsRegistry($versionsRegistry);
+            } else {
+                Core::echo(Colors::get('[dry]', Colors::FG_light_gray) . ' skip saving versions registry (dry-run)');
+            }
+
+            $this->runCmd(['git', 'push'], $destRepoRoot, $write);
+            $this->runCmd(['git', 'push', '--tags'], $destRepoRoot, $write);
         } else {
             Core::echo(Colors::get('[info]', Colors::FG_light_blue) . ' No file changes detected; skipping composer.json write and commit.');
-        }
-
-        // Ensure the repository has an origin remote configured for the target branch
-        $this->gitEnsureOriginRemote($destRepoRoot, $package, $branch, $write);
-        // Tag the last commit (or current HEAD) with the computed version
-        $this->gitTagVersion($destRepoRoot, $versionToWrite, $write);
-
-        // Load versions registry to persist last known versions across exports
-        $versionsRegistry = $this->loadVersionsRegistry();
-        $versionsRegistry[$package] = $versionToWrite;
-        // Save versions registry so last versions persist even if destination repos are removed
-        if ($write) {
-            $this->saveVersionsRegistry($versionsRegistry);
-        } else {
-            Core::echo(Colors::get('[dry]', Colors::FG_light_gray) . ' skip saving versions registry (dry-run)');
         }
 
         return 'composer project at: ' . $destRepoRoot;
