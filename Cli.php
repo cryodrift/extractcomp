@@ -1211,10 +1211,13 @@ class Cli implements Handler
       string $composerfile = '',
       string $rootdir = '',
       string $prjdir = '',
+      bool $push = false,
       bool $write = false
     ): string {
-        $dest = rtrim($dest, "\\/");
+        $dest = $this->fixPath($dest);
         $rootdir = $rootdir ?: Main::$rootdir;
+        $rootdir = $this->fixPath($rootdir);
+        $prjdir = trim($this->fixPath($prjdir), '/');
 
         if ($composerfile === '') {
             $composerfile = $this->join(__DIR__, 'composerproject.json');
@@ -1227,6 +1230,7 @@ class Cli implements Handler
         // Place repository in a subfolder named after the package short name (vendor/name -> name)
         $pkgShort = $this->getPackageShortName($package);
         $destRepoRoot = $this->join($dest, $pkgShort);
+        $destRepoRoot = $this->fixPath($destRepoRoot);
 
         // Initialize or reuse git repo at destRepoRoot
         $destGitDir = $this->join($destRepoRoot, '.git');
@@ -1267,11 +1271,13 @@ class Cli implements Handler
         // Copy listed items
         foreach ($this->listProjectItems($destRepoRoot, $includes, $rootdir) as $from => $to) {
             if (!is_dir($from)) {
-                $to = str_replace($prjdir, '', $to);
+                $to = strtr($to, '\\', '/');
+                if ($prjdir) {
+                    $to = str_replace('/' . $prjdir, '', $to);
+                }
                 Core::echo(Colors::get('[file]', Colors::FG_light_gray) . ' copy ' . $from . ' => ' . $to);
                 if ($write) {
                     $data = Core::fileReadOnce($from);
-
                     Core::fileWrite($to, $data, 0, true);
                 }
             }
@@ -1290,26 +1296,38 @@ class Cli implements Handler
             $this->writeComposer($destRepoRoot, $composer, $write);
             // Commit all changes we made
             $this->gitCommitAll($destRepoRoot, $commitmsg, $write);
+
+            // Ensure the repository has an origin remote configured for the target branch
+            $this->gitEnsureOriginRemote($destRepoRoot, $package, $branch, $write);
+            // Tag the last commit (or current HEAD) with the computed version
+            $this->gitTagVersion($destRepoRoot, $versionToWrite, $write);
+
+            // Load versions registry to persist last known versions across exports
+            $versionsRegistry = $this->loadVersionsRegistry();
+            $versionsRegistry[$package] = $versionToWrite;
+            // Save versions registry so last versions persist even if destination repos are removed
+            if ($write) {
+                $this->saveVersionsRegistry($versionsRegistry);
+            } else {
+                Core::echo(Colors::get('[dry]', Colors::FG_light_gray) . ' skip saving versions registry (dry-run)');
+            }
         } else {
             Core::echo(Colors::get('[info]', Colors::FG_light_blue) . ' No file changes detected; skipping composer.json write and commit.');
         }
-
-        // Ensure the repository has an origin remote configured for the target branch
-        $this->gitEnsureOriginRemote($destRepoRoot, $package, $branch, $write);
-        // Tag the last commit (or current HEAD) with the computed version
-        $this->gitTagVersion($destRepoRoot, $versionToWrite, $write);
-
-        // Load versions registry to persist last known versions across exports
-        $versionsRegistry = $this->loadVersionsRegistry();
-        $versionsRegistry[$package] = $versionToWrite;
-        // Save versions registry so last versions persist even if destination repos are removed
-        if ($write) {
-            $this->saveVersionsRegistry($versionsRegistry);
-        } else {
-            Core::echo(Colors::get('[dry]', Colors::FG_light_gray) . ' skip saving versions registry (dry-run)');
+        if ($push) {
+            $this->runCmd(['git', 'push'], $destRepoRoot, $write);
+            $this->runCmd(['git', 'push', '--tags'], $destRepoRoot, $write);
         }
 
+
         return 'composer project at: ' . $destRepoRoot;
+    }
+
+    private function fixPath(string $path): string
+    {
+        $path = strtr($path, '\\', '/');
+        $path = rtrim($path, '/');
+        return $path;
     }
 
     /**
