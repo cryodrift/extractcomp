@@ -1,0 +1,21 @@
+{
+    "name": "cryodrift/extractcomp",
+    "description": "CLI to extract components from a monorepo preserving history.",
+    "type": "library",
+    "license": "MIT",
+    "version": "0.1.1",
+    "authors": [
+        {
+            "name": "chrisg"
+        }
+    ],
+    "require": {
+        "php": ">=8.4",
+        "cryodrift/fw": "^0.1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "cryodrift\\extractcomp\\": ""
+        }
+    }
+}
