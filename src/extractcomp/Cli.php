@@ -1211,6 +1211,7 @@ class Cli implements Handler
       string $composerfile = '',
       string $rootdir = '',
       string $prjdir = '',
+      bool $push = false,
       bool $write = false
     ): string {
         $dest = rtrim($dest, "\\/");
@@ -1305,12 +1306,14 @@ class Cli implements Handler
             } else {
                 Core::echo(Colors::get('[dry]', Colors::FG_light_gray) . ' skip saving versions registry (dry-run)');
             }
-
-            $this->runCmd(['git', 'push'], $destRepoRoot, $write);
-            $this->runCmd(['git', 'push', '--tags'], $destRepoRoot, $write);
         } else {
             Core::echo(Colors::get('[info]', Colors::FG_light_blue) . ' No file changes detected; skipping composer.json write and commit.');
         }
+        if ($push) {
+            $this->runCmd(['git', 'push'], $destRepoRoot, $write);
+            $this->runCmd(['git', 'push', '--tags'], $destRepoRoot, $write);
+        }
+
 
         return 'composer project at: ' . $destRepoRoot;
     }
