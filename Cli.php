@@ -1268,6 +1268,11 @@ class Cli implements Handler
         } else {
             $includes = $this->project_include;
         }
+        // first push to sync
+        if ($push) {
+            $this->runCmd(['git', 'push'], $destRepoRoot, $write);
+        }
+
         // Copy listed items
         foreach ($this->listProjectItems($destRepoRoot, $includes, $rootdir) as $from => $to) {
             if (!is_dir($from)) {
