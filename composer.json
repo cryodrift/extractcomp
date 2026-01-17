@@ -3,7 +3,7 @@
     "description": "CLI to extract components from a monorepo preserving history.",
     "type": "library",
     "license": "MIT",
-    "version": "0.1.8",
+    "version": "0.1.9",
     "authors": [
         {
             "name": "chrisg"
