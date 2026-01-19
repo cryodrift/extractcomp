@@ -1275,6 +1275,7 @@ class Cli implements Handler
             $this->runCmd(['git', 'push'], $destRepoRoot, $write);
         }
 
+        $copyechos = '';
         // Copy listed items
         foreach ($this->listProjectItems($destRepoRoot, $includes, $rootdir) as $from => $to) {
             $from = $this->fixPath($from);
@@ -1289,9 +1290,9 @@ class Cli implements Handler
                     if ($composerfile !== $shortfile) {
                         $data = Core::fileReadOnce($from);
                         Core::fileWrite($to, $data, 0, true);
-                        Core::echo(Colors::get('[file]', Colors::FG_light_green) . ' copy ' . $from . ' => ' . $to);
+                        $copyechos .= Core::toLog(Colors::get('[file]', Colors::FG_light_green) . ' copy ' . $from . ' => ' . $to);
                         if (str_contains($from, 'composer.json')) {
-                            Core::echo(Colors::get('[composer.json]', Colors::FG_red), $composerfile, $shortfile);
+                            $copyechos .= Core::toLog(Colors::get('[composer.json]', Colors::FG_red), $composerfile, $shortfile);
                         }
                     }
                 } else {
@@ -1309,7 +1310,8 @@ class Cli implements Handler
         $commitmsg = $this->getLatestCommitMessage($rootdir, $branch, $this->join($rootdir, Main::path($prjdir)), '%B');
         // Only write/update composer.json version when other files have changed
         if ($hasChanges) {
-            Core::echo(Colors::get('[changed]', Colors::FG_light_red),'to new version', $versionToWrite);
+            echo $copyechos;
+            Core::echo(Colors::get('[changed]', Colors::FG_light_red), 'to new version', $versionToWrite);
             $composer['version'] = $versionToWrite;
             $this->writeComposer($destRepoRoot, $composer, $write);
             // Commit all changes we made
