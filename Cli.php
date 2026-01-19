@@ -1223,6 +1223,8 @@ class Cli implements Handler
             $composerfile = $this->join(__DIR__, 'composerproject.json');
         }
 
+        $composerfile = $this->fixPath($composerfile);
+
         // Read composer.json from template
         $composer = $this->readComposerProjectTemplate($composerfile);
 
@@ -1275,15 +1277,25 @@ class Cli implements Handler
 
         // Copy listed items
         foreach ($this->listProjectItems($destRepoRoot, $includes, $rootdir) as $from => $to) {
+            $from = $this->fixPath($from);
+            $to = $this->fixPath($to);
             if (!is_dir($from)) {
                 $to = strtr($to, '\\', '/');
                 if ($prjdir) {
                     $to = str_replace('/' . $prjdir, '', $to);
                 }
-                Core::echo(Colors::get('[file]', Colors::FG_light_gray) . ' copy ' . $from . ' => ' . $to);
                 if ($write) {
-                    $data = Core::fileReadOnce($from);
-                    Core::fileWrite($to, $data, 0, true);
+                    $shortfile = trim(str_replace($rootdir, '', $from), '/');
+                    if ($composerfile !== $shortfile) {
+                        $data = Core::fileReadOnce($from);
+                        Core::fileWrite($to, $data, 0, true);
+                        Core::echo(Colors::get('[file]', Colors::FG_light_green) . ' copy ' . $from . ' => ' . $to);
+                        if (str_contains($from, 'composer.json')) {
+                            Core::echo(Colors::get('[composer.json]', Colors::FG_red), $composerfile, $shortfile);
+                        }
+                    }
+                } else {
+                    Core::echo(Colors::get('[file]', Colors::FG_light_gray) . ' copy ' . $from . ' => ' . $to);
                 }
             }
         }
@@ -1297,6 +1309,7 @@ class Cli implements Handler
         $commitmsg = $this->getLatestCommitMessage($rootdir, $branch, $this->join($rootdir, Main::path($prjdir)), '%B');
         // Only write/update composer.json version when other files have changed
         if ($hasChanges) {
+            Core::echo(Colors::get('[changed]', Colors::FG_light_red),'to new version', $versionToWrite);
             $composer['version'] = $versionToWrite;
             $this->writeComposer($destRepoRoot, $composer, $write);
             // Commit all changes we made
